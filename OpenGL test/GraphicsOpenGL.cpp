@@ -30,13 +30,29 @@ void OpenGL_API::programInfoLog(GLuint shader)
 		_freea(infoLog);
 	}
 }
-bool OpenGL_API::GraphicsOpenGL::pushShaders(GLchar* typeShader, GLchar** code, size_t length)
+
+bool OpenGL_API::GraphicsOpenGL::pushTexture(GLchar* image, GLuint width, GLuint height) {
+	numberTextures++;
+	textures = (GLuint*)realloc(textures, numberTextures * sizeof(GLuint));
+	glGenTextures(1, &textures[numberTextures - 1]);
+	glBindTexture(GL_TEXTURE_2D, textures[numberTextures - 1]);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glGenerateMipmap(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	return true;
+}
+
+bool OpenGL_API::GraphicsOpenGL::pushShaders(GLuint* typeShader, GLchar** code, size_t length)
 {
 	size_t i = 0;
 	GLint infoLength;
 	while (*typeShader && length > i) {
 		switch (*typeShader) {
-		case glVertexShader: {
+		case GL_VERTEX_SHADER: {
 			numberVertexShaders++;
 			vertexShaders = (GLuint*)realloc(vertexShaders, numberVertexShaders * sizeof(GLuint));
 			GLuint* ptrVertexShader = vertexShaders + numberVertexShaders - 1;
@@ -46,7 +62,7 @@ bool OpenGL_API::GraphicsOpenGL::pushShaders(GLchar* typeShader, GLchar** code, 
 			checkErrorShader(*ptrVertexShader, "GL_VERTEX_SHADER", GL_COMPILE_STATUS);
 			break;
 		}
-		case glFragmentShader: {
+		case GL_FRAGMENT_SHADER: {
 			numberFragmentShaders++;
 			fragmentShaders = (GLuint*)realloc(fragmentShaders, numberFragmentShaders * sizeof(GLuint));
 			GLuint* ptrFragmentShader = fragmentShaders + numberFragmentShaders - 1;
@@ -56,7 +72,16 @@ bool OpenGL_API::GraphicsOpenGL::pushShaders(GLchar* typeShader, GLchar** code, 
 			checkErrorShader(*ptrFragmentShader, "GL_FRAGMENT_SHADER", GL_COMPILE_STATUS);
 			break;
 		}
-		case EndLine: {
+		case GL_COMPUTE_SHADER: {
+			numberComputeShaders++;
+			computeShaders = (GLuint*)realloc(computeShaders, numberComputeShaders * sizeof(GLuint));
+			GLuint* ptrComputeShader = computeShaders + numberComputeShaders - 1;
+			*ptrComputeShader = glCreateShader(GL_COMPUTE_SHADER);
+			glShaderSource(*ptrComputeShader, 1, &code[i], NULL);
+			glCompileShader(*ptrComputeShader);
+			checkErrorShader(*ptrComputeShader, "GL_COMPUTE_SHADER", GL_COMPILE_STATUS);
+		}
+		default: {
 			break;
 		}
 		}
@@ -68,31 +93,39 @@ bool OpenGL_API::GraphicsOpenGL::pushShaders(GLchar* typeShader, GLchar** code, 
 
 bool OpenGL_API::GraphicsOpenGL::pushProgram()
 {
-	if (numberFragmentShaders == 0 || numberVertexShaders == 0)
-		return true;
+	//if (numberFragmentShaders == 0 || numberVertexShaders == 0)
+	//	return true;
 	numberPrograms++;
 	programs = (GLuint*)realloc(programs, numberPrograms * sizeof(GLuint));
 	GLuint* ptrPrograms = programs + numberPrograms - 1;
 	GLint errors;
 	*ptrPrograms = glCreateProgram();
-	for (size_t i = 0; i < numberFragmentShaders; i++) {
+	for (size_t i = 0; i < numberFragmentShaders; i++)
 		glAttachShader(*ptrPrograms, fragmentShaders[i]);
-	}
 	for (size_t i = 0; i < numberVertexShaders; i++)
 		glAttachShader(*ptrPrograms, vertexShaders[i]);
+	for (size_t i = 0; i < numberComputeShaders; i++)
+		glAttachShader(*ptrPrograms, computeShaders[i]);
 	glLinkProgram(*ptrPrograms);
 	programInfoLog(*ptrPrograms);
 	for (size_t i = 0; i < numberFragmentShaders; i++)
 		glDeleteShader(fragmentShaders[i]);
 	for (size_t i = 0; i < numberVertexShaders; i++)
 		glDeleteShader(vertexShaders[i]);
-
-	free(fragmentShaders);
-	free(vertexShaders);
+	for (size_t i = 0; i < numberComputeShaders; i++)
+		glDeleteShader(computeShaders[i]);
+	if (numberFragmentShaders)
+		free(fragmentShaders);
+	if (numberVertexShaders)
+		free(vertexShaders);
+	if (numberComputeShaders)
+		free(computeShaders);
 	numberFragmentShaders = 0;
 	numberVertexShaders = 0;
+	numberComputeShaders = 0;
 	fragmentShaders = NULL;
 	vertexShaders = NULL;
+	computeShaders = NULL;
 	return false;
 }
 
@@ -100,6 +133,18 @@ void OpenGL_API::GraphicsOpenGL::switchPrograms(size_t i)
 {
 	if (i < numberPrograms)
 		glUseProgram(programs[i]);
+}
+GLuint OpenGL_API::GraphicsOpenGL::getTexture(size_t i)
+{
+	if (i < numberTextures)
+		return textures[i];
+	return NULL;
+}
+GLuint OpenGL_API::GraphicsOpenGL::getBuffer(size_t i)
+{
+	if (i < numberArrayBuffer)
+		return arrayBuffer[i];
+	return NULL;
 }
 GLuint OpenGL_API::GraphicsOpenGL::getProgram(size_t i)
 {
@@ -118,10 +163,11 @@ OpenGL_API::GraphicsOpenGL::GraphicsOpenGL()
 		printf("%s \n", glewGetErrorString(glewCode));
 		return;
 	}
-	if (!GLEW_VERSION_3_0) {
-		printf("No support for OpenGL 3.0 found\n");
+	if (!GLEW_VERSION_4_0) {
+		printf("No support for OpenGL 4.0 found\n");
 		return;
 	}
+	glewExperimental = GL_TRUE;
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 }

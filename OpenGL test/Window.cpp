@@ -1,9 +1,10 @@
 #include "Window.h"
+
 void Window::projectionMatrix(Matrix* data, size_t height, size_t width) {
 	float* matrix = data->getMatrix(0);
 	float aspect = (float)width / height;
 	float angle = 45;
-	float z_near = -1.0f;
+	float z_near = 1.0f;
 	float z_far = 100.0f;
 	float max_xy = z_near * tan(angle);
 	float min_y = -max_xy;
@@ -20,6 +21,21 @@ void Window::projectionMatrix(Matrix* data, size_t height, size_t width) {
 	matrix[10] = q;
 	matrix[11] = -1;
 	matrix[14] = nq;
+	for (size_t i = 0; i < 4; i++) {
+		for (size_t j = 0; j < 4; j++) {
+			printf("%f ", matrix[i * 4 + j]);
+		}
+		printf("\n");
+	}
+	glm::mat4 Projection = glm::perspective(45.0f, aspect, 0.1f, 100.0f);
+	for (size_t i = 0; i < 4; i++) {
+		for (size_t j = 0; j < 4; j++) {
+			printf("%f ", Projection[i][j]);
+		}
+		printf("\n");
+	}
+	int c = 0;
+	memcpy(matrix, &Projection[0][0], 16 * sizeof(float));
 }
 void Window::modelMatrix(Matrix* data) {
 	float* matrix = data->getMatrix(2);
@@ -93,13 +109,12 @@ void Window::mouseCallback(GLFWwindow * window, double x, double y)
 	if (_entered) {
 		Matrix *dataMatrix;
 		dataMatrix = (Matrix *)glfwGetWindowUserPointer(window);
-		float delta_x = (x - xPosition);
-		float delta_y = (y - yPosition);
 
+		float* matrix = dataMatrix->getMatrix(2);
 
-		Window::Eye[0] = 1;
-		Window::Eye[1] = 1;
-		Window::Eye[2] = 1;
+		Window::Eye[0] = 0.0f;
+		Window::Eye[1] = 0.0f;
+		Window::Eye[2] = 5.0f;
 
 		Window::Center[0] = 0.0f;
 		Window::Center[1] = 0.0f;
@@ -110,9 +125,6 @@ void Window::mouseCallback(GLFWwindow * window, double x, double y)
 		Window::Up[2] = 0.0f;
 
 		modelMatrix(dataMatrix);
-
-		xPosition = x;
-		yPosition = y;
 	}
 	else {
 		xPosition = x;
@@ -121,35 +133,52 @@ void Window::mouseCallback(GLFWwindow * window, double x, double y)
 }
 void Window::scrollCallback(GLFWwindow * window, double xOffs, double yOffs)
 {
-	Matrix *dataMatrix;
-	dataMatrix = (Matrix *)glfwGetWindowUserPointer(window);
-	dataMatrix->getMatrix(1)[0] += 0.01f * yOffs;
-	dataMatrix->getMatrix(1)[5] += 0.01f *  yOffs;
-	dataMatrix->getMatrix(1)[10] += 0.01f * yOffs;
+	//Matrix *dataMatrix;
+	//dataMatrix = (Matrix *)glfwGetWindowUserPointer(window);
+	//Window::Eye[0] += 0.01f * yOffs;
+	//Window::Eye[1] += 0.01f * yOffs;
+	//Window::Eye[2] += 0.01f * yOffs;
+	//modelMatrix(dataMatrix);
+	scrollModification += yOffs;
 }
 void Window::dropCallback(GLFWwindow * window, int count, const char ** paths)
 {
 }
+
 void Window::keyCallback(GLFWwindow * window, int key, int scancode, int action, int mods)
 {
 	Matrix *dataMatrix;
 	dataMatrix = (Matrix *)glfwGetWindowUserPointer(window);
-	//if (action == GLFW_PRESS)
-	//	keyStatus[key] = true;
-	//else if (action == GLFW_RELEASE)
-	//	keyStatus[key] = false;
-	if (key == GLFW_KEY_LEFT)
-		dataMatrix->getMatrix(1)[7] -= 0.05f;
-	if (key == GLFW_KEY_RIGHT)
-		dataMatrix->getMatrix(1)[7] += 0.05f;
-	if (key == GLFW_KEY_UP)
-		dataMatrix->getMatrix(1)[3] += 0.05f; 
-	if (key == GLFW_KEY_DOWN)
-		dataMatrix->getMatrix(1)[3] -= 0.05f;
-	//if (key == GLFW_KEY_KP_ADD)
-	//	disp += 0.10f;
-	//if (key == GLFW_KEY_KP_SUBTRACT)
-	//	disp -= 0.10f;
+	if (action == GLFW_PRESS) {
+		keyStatus[key] = true;
+	}
+	else if (action == GLFW_RELEASE) {
+		keyRelease = true;
+		keyStatus[key] = false;
+	}
+	if (key == GLFW_KEY_LEFT) {
+		Window::Eye[1] -= 0.5f;
+		dataMatrix = (Matrix *)glfwGetWindowUserPointer(window);
+		modelMatrix(dataMatrix);
+	}
+	else
+		if (key == GLFW_KEY_RIGHT) {
+			Window::Eye[1] += 0.5f;
+			dataMatrix = (Matrix *)glfwGetWindowUserPointer(window);
+			modelMatrix(dataMatrix);
+		}
+		else
+			if (key == GLFW_KEY_UP) {
+				Window::Eye[2] -= 0.5f;
+				dataMatrix = (Matrix *)glfwGetWindowUserPointer(window);
+				modelMatrix(dataMatrix);
+			}
+			else
+				if (key == GLFW_KEY_DOWN) {
+					Window::Eye[2] += 0.5f;
+					dataMatrix = (Matrix *)glfwGetWindowUserPointer(window);
+					modelMatrix(dataMatrix);
+				}
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
@@ -170,6 +199,12 @@ void Window::setupOpenGL()
 	glfwWindowHint(GLFW_SAMPLES, 0);
 	glfwWindowHint(GLFW_STEREO, GL_FALSE);
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glEnable(GL_POINT_SMOOTH);
+	glEnable(GL_TEXTURE_2D);
+	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	//glPointSize(5.0f);
 	//glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 	//glDebugMessageCallback(openGLDebugCallback, nullptr);
 	//glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, true);
@@ -199,9 +234,22 @@ void Window::pushProgram(GLuint program)
 	ptrProgram[numberProgram] = program;
 	numberProgram++;
 }
-
+bool* Window::getPtrKeyRelease() {
+	return &keyRelease;
+}
+unsigned char* Window::getPtrStatusKey() {
+	return keyStatus;
+}
+unsigned char * Window::getTextWindow() {
+	return textWindow + 16;
+}
+float* Window::getPtrScrollInfo() {
+	return &scrollModification;
+}
 Window::Window(int32_t width, int32_t height, uint8_t* nameWindow, Matrix* data)
 {
+	for (size_t i = 0; i < sizeof(textWindow); i++)
+		textWindow[i] = 32;
 	for (size_t i = 0; i < sizeof(*this); i++)
 		((int8_t*)this)[i] = 0;
 
@@ -227,9 +275,10 @@ Window::Window(int32_t width, int32_t height, uint8_t* nameWindow, Matrix* data)
 	glfwSetMouseButtonCallback(window, mouseButtonCallback);
 	glfwSetCursorEnterCallback(window, cursorEnterCallback);
 	glfwMakeContextCurrent(window);
-								
+
 	modelMatrix(data);
 	projectionMatrix(data, height, width);
+	draw = true;
 }
 
 bool Window::makeLoop()
@@ -240,24 +289,27 @@ bool Window::makeLoop()
 
 	while (!glfwWindowShouldClose(window))
 	{
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		if (draw) {
+			glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		for (i = 0; i < numberLoopFunctions; i++) {
-			loopFunctions[i](ptrNumberArguments[i], ptrTypeArgument[i], ptrArgument[i]);
-		}
-		glfwSwapBuffers(window);
-		glfwPollEvents();
-		double currentTime = glfwGetTime();
-		frameCount++;
-		if (currentTime - previousTime >= 1.0) {
-			char title[32];
-			title[31] = '\0';
-			snprintf(title, 32, " %u FPS", frameCount);
-			glfwSetWindowTitle(window, title);
+			for (i = 0; i < numberLoopFunctions; i++) {
+				loopFunctions[i](ptrNumberArguments[i], ptrTypeArgument[i], ptrArgument[i]);
+			}
+			glfwSwapBuffers(window);
+			glfwPollEvents();
+			double currentTime = glfwGetTime();
+			frameCount++;
+			if (currentTime - previousTime >= 1.0) {
+				textWindow[127] = '\0';
+				Mathematics::pushFloat((char*)textWindow, (float)frameCount, 16);
+				//snprintf((char*)textWindow, 16, " %u FPS", frameCount);
 
-			frameCount = 0;
-			previousTime += 1.0;
+				glfwSetWindowTitle(window, (char*)textWindow);
+
+				frameCount = 0;
+				previousTime += 1.0;
+			}
 		}
 	}
 	return true;

@@ -1,168 +1,83 @@
 #include "MakeFigures.h"
 
-void MakeFigures::makeField(OpenGL_API::GraphicsOpenGL* mainGL, float x_near, float x_far, float y_near, float y_far, float x_step, float y_step) {
-	size_t h = (y_far - y_near) / y_step;
-	size_t w = (x_far - x_near) / x_step;
-	size_t vertexSize = h * w * 3;
-	size_t texSize = vertexSize * 2 / 3;
-	size_t indecesSize = vertexSize * 2 / 3;
-	float* coords = (float*)malloc(vertexSize * sizeof(float));
-	float* colors = (float*)malloc(vertexSize * sizeof(float));
-	float* normals = (float*)malloc(vertexSize * sizeof(float));
-	float* texCoordinates = (float*)malloc(texSize * sizeof(float));
-	unsigned int* indices = (unsigned int*)malloc(indecesSize * sizeof(int));
+volatile size_t* MakeFigures::makeField(OpenGL_API::GraphicsOpenGL* mainGL, float x_near, float x_far, float y_near, float y_far, float z_near, float z_far, float x_step, float y_step, float z_step) {
 
-	uint8_t condition = 0;
+	volatile size_t size_x = (x_far - x_near) / x_step;
+	volatile size_t size_y = (y_far - y_near) / y_step;
+	volatile size_t size_z = (z_far - z_near) / z_step;
 
-	coords[0] = x_near;
-	coords[1] = y_near;
-	coords[2] = 0.0f;
-	indices[0] = 0;
-	size_t index = 3;
-	size_t offsetIndex = 1;
-	float x = x_near;
-	float y = y_near;
-	float z = 0.0f;
-	while (condition != 255) {
-		switch (condition) {
-		case 0:
-			y += y_step;
-			if (y > y_far)
-				condition = 255;
-			coords[index++] = x;
-			coords[index++] = y;
-			coords[index++] = z;
-			indices[offsetIndex] = offsetIndex++;
-			condition = x >= x_far ? 4 : condition + 1;
-			break;
-		case 1:
-			x += x_step;
-			coords[index++] = x;
-			coords[index++] = y;
-			coords[index++] = z;
-			indices[offsetIndex++] = offsetIndex + 1;
-			condition++;
-			break;
-		case 2:
-			y -= y_step;
-			coords[index++] = x;
-			coords[index++] = y;
-			coords[index++] = z;
-			indices[offsetIndex++] = offsetIndex - 2;
-			condition = x >= x_far ? 5 : condition + 1;
-			break;
-		case 3:
-			x += x_step;
-			coords[index++] = x;
-			coords[index++] = y;
-			coords[index++] = z;
-			condition = 0;
-			break;
-		case 4:
-			y += y_step + y_step;
-			if (y > y_far)
-				condition = 255;
-			coords[index++] = x;
-			coords[index++] = y;
-			coords[index++] = z;
-			condition = x <= x_near ? 0 : 6;
-			condition = 6;
-			break;
-		case 5:
-			y += y_step + y_step + y_step;
-			if (y > y_far)
-				condition = 255;
-			coords[index++] = x;
-			coords[index++] = y;
-			coords[index++] = z;
-			condition = 6;
-			break;
-		case 6:
-			x -= x_step;
-			coords[index++] = x;
-			coords[index++] = y;
-			coords[index++] = z;
-			condition = 7;
-			break;
-		case 7:
-			y -= y_step;
-			coords[index++] = x;
-			coords[index++] = y;
-			coords[index++] = z;
-			condition = 8;
-			break;
-		case 8:
-			x -= x_step;
-			coords[index++] = x;
-			coords[index++] = y;
-			coords[index++] = z;
-			condition = 9;
-			break;
-		case 9:
-			y += y_step;
-			coords[index++] = x;
-			coords[index++] = y;
-			coords[index++] = z;
-			condition = 6;
-			break;
+	size_t size_vertex = size_x * size_y * size_z * 3;
+	size_t size_texture = (size_vertex * 2) / 3;
+	size_t size_index = size_x * size_y * 4;
+	GLfloat* position = (GLfloat*)malloc(size_vertex * sizeof(GLfloat));
+	GLfloat* normal = (GLfloat*)malloc(size_vertex * sizeof(GLfloat));
+	GLfloat* color = (GLfloat*)malloc(size_vertex * sizeof(GLfloat));
+	GLuint* index = (GLuint*)malloc(size_index * sizeof(GLuint));
+	GLfloat* texture = (GLfloat*)malloc(size_texture * sizeof(GLfloat));
+	size_t width_height = size_y * size_x * 3;
+	size_t width = size_x * 3;
+
+	//GLfloat x_vector = size_x / sqrt(size_x * size_x + size_y * size_y + size_z * size_z);
+	//GLfloat y_vector = size_y / sqrt(size_x * size_x + size_y * size_y + size_z * size_z);
+	//GLfloat z_vector = size_z / sqrt(size_x * size_x + size_y * size_y + size_z * size_z);
+	GLfloat x_vector = 0;
+	GLfloat y_vector = 0;
+	GLfloat z_vector = 1;
+
+	for (size_t z = 0,  texture_index = 0; z < size_z; z++) {
+		for (size_t y = 0; y < size_y; y++) {
+			for (size_t x = 0, i = 0; x < size_x; x++) {
+				position[z * width_height + y * width + i] = x_near + x * x_step;
+				position[z * width_height + y * width + i + 1] = y_near + y * y_step;
+				position[z * width_height + y * width + i + 2] = z_near + z * z_step;
+
+				normal[z * width_height + y * width + i] = x_vector;
+				normal[z * width_height + y * width + i + 1] = y_vector;
+				normal[z * width_height + y * width + i + 2] = z_vector;
+
+				color[z * width_height + y * width + i] = 1.0f;
+				color[z * width_height + y * width + i + 1] = 1.0f;
+				color[z * width_height + y * width + i + 2] = 1.0f;
+				texture[texture_index++] = (float)x / size_x;
+				texture[texture_index++] = (float)y / size_y;
+				i+=3;
+			}
 		}
 	}
-
-	for (size_t i = 0; i < index;) {
-		colors[i++] = 1.0f;
-		colors[i++] = 1.0f;
-		colors[i++] = 1.0f;
+	width_height /= 3;
+	width /= 3;
+	size_t x = 0, y = 0, j = 0;
+	for (size_t k = 0; k < size_y - 1; k++) {
+		if (k % 2 == 0) {
+			for (size_t i = 0; i < size_x; i++) {
+				index[j++] = size_x * x++ + y;
+				index[j++] = size_x * x-- + y++;
+			}
+			y--;
+			x++;
+		}
+		else {
+			for (size_t i = 0; i < size_x; i++) {
+				index[j++] = size_x * x++ + y;
+				index[j++] = size_x * x-- + y--;
+			}
+			x++;
+			y++;
+		}
 	}
-	index = 0;
-
-}
-
-void MakeFigures::makeLines(OpenGL_API::GraphicsOpenGL* mainGL, float x_length, float y_length, float z_length) {
-	size_t vertexSize = 4 * 3;
-	size_t indexesSize = 6;
-	float* coords = (float*)malloc(vertexSize * sizeof(float));
-	float* colors = (float*)malloc(vertexSize * sizeof(float));
-	float* normals = (float*)malloc(vertexSize * sizeof(float));
-	unsigned int* indices = (unsigned int*)malloc(indexesSize * sizeof(int));
-	//float* texture = (float*)malloc(texSize * sizeof(float));
-	coords[0] = 0.0f;
-	coords[1] = 0.0f;
-	coords[2] = 0.0f;
-
-	coords[3] = x_length;
-	coords[4] = 0.0f;
-	coords[5] = 0.0f;
-
-	coords[6] = 0.0f;
-	coords[7] = y_length;
-	coords[8] = 0.0f;
-
-	coords[9] = 0.0f;
-	coords[10] = 0.0f;
-	coords[11] = z_length;
-	indices[0] = 0;
-	indices[1] = 1;
-	indices[2] = 0;
-	indices[3] = 2;
-	indices[4] = 0;
-	indices[5] = 3;
-	for (size_t i = 0; i < vertexSize; ) {
-		colors[i++] = 1.0f;
-		colors[i++] = 1.0f;
-		colors[i++] = 1.0f;
-	}
-	for (size_t i = 0; i < vertexSize; i++)
-		normals[i] = coords[i];
-	mainGL->pushBuffer(coords, vertexSize * sizeof(*coords), 3, GL_LINES, glGetAttribLocation(mainGL->getProgram(0), "positions"), true, GL_ARRAY_BUFFER_ARB, GL_STATIC_DRAW);
-	mainGL->pushBuffer(colors, vertexSize * sizeof(*colors), 3, NULL, glGetAttribLocation(mainGL->getProgram(0), "colors"), false, GL_ARRAY_BUFFER_ARB, GL_STATIC_DRAW);
-	mainGL->pushBuffer(normals, vertexSize * sizeof(*normals), 3, NULL, glGetAttribLocation(mainGL->getProgram(0), "normals"), false, GL_ARRAY_BUFFER_ARB, GL_STATIC_DRAW);
-	//mainGL->pushBuffer(texture, texSize * sizeof(*texture), 2, NULL, glGetAttribLocation(mainGL->getProgram(0), "texture"), false, GL_ARRAY_BUFFER_ARB, GL_STATIC_DRAW);
-	mainGL->pushBuffer(indices, indexesSize * sizeof(*indices), 2, NULL, -1, false, GL_ELEMENT_ARRAY_BUFFER_ARB, GL_STATIC_DRAW);
-	free(colors);
-	free(coords);
-	free(normals);
-	//free(texture);
-	free(indices);
+	//
+	mainGL->pushBuffer(position, size_vertex * sizeof(GLfloat), 3, GL_TRIANGLE_STRIP, glGetAttribLocation(mainGL->getProgram(0), "positions"), true, GL_ARRAY_BUFFER_ARB, GL_DYNAMIC_DRAW);
+	mainGL->pushBuffer(color, size_vertex * sizeof(GLfloat), 3, NULL, glGetAttribLocation(mainGL->getProgram(0), "colors"), false, GL_ARRAY_BUFFER_ARB, GL_STATIC_DRAW);
+	mainGL->pushBuffer(normal, size_vertex * sizeof(GLfloat), 3, NULL, glGetAttribLocation(mainGL->getProgram(0), "normals"), false, GL_ARRAY_BUFFER_ARB, GL_STATIC_DRAW);
+	mainGL->pushBuffer(texture, size_texture * sizeof(GLuint), 2, NULL, glGetAttribLocation(mainGL->getProgram(0), "texture"), false, GL_ARRAY_BUFFER_ARB, GL_STATIC_DRAW);
+	mainGL->pushBuffer(index, (j) * sizeof(GLuint), 2, NULL, -1, false, GL_ELEMENT_ARRAY_BUFFER_ARB, GL_STATIC_DRAW);
+	free(position);
+	free(normal);
+	free(color);
+	free(index);
+	free(texture);
+	volatile size_t work[2] = { size_x, size_y };
+	return work;
 }
 
 void MakeFigures::makeSphere(OpenGL_API::GraphicsOpenGL* mainGL, float radius, size_t sectorCount, size_t stackCount,
@@ -182,7 +97,7 @@ void MakeFigures::makeSphere(OpenGL_API::GraphicsOpenGL* mainGL, float radius, s
 	size_t indexTex = 0;
 
 	float x, y, z, xy;
-	float nx, ny, nz, lengthInv = 1.0f / radius;
+	float normal_x, normal_y, normal_z, lengthInv = 1.0f / radius;
 	float s, t;
 	float sectorStep = 2 * M_PI / sectorCount;
 	float stackStep = M_PI / stackCount;
@@ -207,17 +122,17 @@ void MakeFigures::makeSphere(OpenGL_API::GraphicsOpenGL* mainGL, float radius, s
 			ptrCoords[index + 1] = y + yPosition;
 			ptrCoords[index + 2] = z + zPosition;
 
-			nx = x * lengthInv;
-			ny = y * lengthInv;
-			nz = z * lengthInv;
+			normal_x = x * lengthInv;
+			normal_y = y * lengthInv;
+			normal_z = z * lengthInv;
 
 			ptrColor[index] = 1.0f;
 			ptrColor[index + 1] = 1.0f;
 			ptrColor[index + 2] = 1.0f;
 
-			ptrNormals[index++] = nx;
-			ptrNormals[index++] = ny;
-			ptrNormals[index++] = nz;
+			ptrNormals[index++] = normal_x;
+			ptrNormals[index++] = normal_y;
+			ptrNormals[index++] = normal_z;
 
 			s = (float)j / sectorCount;
 			t = (float)i / stackCount;

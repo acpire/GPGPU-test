@@ -9,7 +9,7 @@
 #pragma comment(lib,"OpenGL32.Lib")
 
 namespace OpenGL_API {
-	enum  shaders { EndLine, glVertexShader, glFragmentShader };
+	//enum  shaders { EndLine, glVertexShader, glFragmentShader };
 	struct dataVAO {
 		GLuint VAO;
 		GLuint numberElements;
@@ -20,22 +20,27 @@ namespace OpenGL_API {
 		GLuint* programs;
 		GLuint* fragmentShaders;
 		GLuint* vertexShaders;
+		GLuint* computeShaders;
 		GLuint* arrayBuffer;
 		GLuint* textures;
 		dataVAO* objectsVAO;
 		size_t numberPrograms;
 		size_t numberFragmentShaders;
 		size_t numberVertexShaders;
+		size_t numberComputeShaders;
 		size_t numberArrayBuffer;
 		size_t numberObjectsVAO;
 		size_t numberTextures;
 		void checkErrorShader(GLuint shader, const GLchar* text, GLuint status);
 	public:
-		bool pushShaders(GLchar* typeShader, GLchar** code, size_t length);
+		bool pushTexture(GLchar * image, GLuint width, GLuint height);
+		bool pushShaders(GLuint* typeShader, GLchar** code, size_t length);
 		bool pushProgram();
 		void switchPrograms(size_t i);
 		void pushBuffer(void * data, size_t lengthData, size_t numberCoordinates, GLuint figure, GLint attributeLocation, GLboolean generateVertex, size_t typeBuffer, GLenum renderingMode);
 		GLuint getProgram(size_t i);
+		GLuint getTexture(size_t i);
+		GLuint getBuffer(size_t i);
 		dataVAO* getVAO();
 
 		GraphicsOpenGL();
